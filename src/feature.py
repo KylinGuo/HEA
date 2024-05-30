@@ -1,5 +1,8 @@
 import pandas as pd
 from matminer.featurizers.conversions import StrToComposition
+# from matminer.featurizers.composition import ElementProperty
+# from matminer.featurizers.composition.alloy import Miedema
+# from matminer.featurizers.composition.tests import test_alloy
 from matminer_base_featurizer_demo import CompoundFeaturizer
 
 
@@ -16,8 +19,8 @@ def composition_featurize(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def test_composition_featurize():
-    data_file_input = 'data.json'
-    data_file_output = 'data_featurized.json'
+    data_file_input = 'data/data.json'
+    data_file_output = 'data/featurized.json'
     df = pd.read_json(data_file_input)
     df_featurized = composition_featurize(df=df)
     df_featurized.to_json(path_or_buf=data_file_output, orient='records', indent=4)
