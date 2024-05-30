@@ -19,8 +19,8 @@ class CompoundFeaturizer(BaseFeaturizer, ABC):
 
     def featurize(self, composition: Composition):
         composition_dict = composition.fractional_composition.get_el_amt_dict()
-        atomic_fractions = list(composition_dict.values())
         atomic_symbols = list(composition_dict.keys())
+        atomic_fractions = list(composition_dict.values())
         element_list = [element(symbol) for symbol in atomic_symbols]
 
         property_list = [
@@ -48,6 +48,10 @@ class CompoundFeaturizer(BaseFeaturizer, ABC):
         feature_list = [feature_dict[key] for key in property_list]
         for i in range(3):
             feature_list.append(feature_dict[f'ionization_energy_{i + 1}'])
+
+        feature_list.append(-np.dot(a=atomic_fractions, b=np.log(atomic_fractions)))
+        feature_list.append(np.sqrt(np.dot(a=atomic_fractions, b=(1 - np.array(atomic_fractions) / np.mean(atomic_fractions)) ** 2)))
+        
         return feature_list
 
     def feature_labels(self):
@@ -62,6 +66,8 @@ class CompoundFeaturizer(BaseFeaturizer, ABC):
             'first ionization energy',
             'second ionization energy',
             'third ionization energy',
+            'mixing entropy', 
+            'atomic size difference',
         ]
         return labels
 
@@ -79,12 +85,12 @@ class CompoundFeaturizer(BaseFeaturizer, ABC):
 def test_compound_featurizer():
     compound_featurizer = CompoundFeaturizer()
 
-    composition_str = 'Fe1.00Ni0.00'
+    composition_str = 'Fe2.00Ni4.00'
     composition_pmg = Composition(composition_str)
 
     feature_labels = compound_featurizer.feature_labels()
     feature_list = compound_featurizer.featurize(composition_pmg)
-    print('\n'.join([f'{key:<30s}: {value:10.6f}' for key, value in zip(feature_labels, feature_list)]))
+    print('\n'.join([f'{key:>30s}: {value:12.6f}' for key, value in zip(feature_labels, feature_list)]))
 
 
 def main():
