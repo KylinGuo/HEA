@@ -6,34 +6,51 @@ Date: 2024/05/17 14:53:43
 Description: 
 Copyright (c) 2024 GUO Qilin
 """
-from abc import ABC
+import os
 import numpy as np
+import pandas as pd
 from pymatgen.core.composition import Composition
 from matminer.featurizers.base import BaseFeaturizer
 from mendeleev import element
 
+DATA_DIR = '.'
 
-class CompoundFeaturizer(BaseFeaturizer, ABC):
-    def __init__(self):
-        super().__init__()
+def load_dataset(data_source: str) -> pd.DataFrame:
+    df = pd.read_csv(os.path.join(DATA_DIR, data_source), index_col="element")
+    return df
 
-    def featurize(self, composition: Composition):
-        composition_dict = composition.fractional_composition.get_el_amt_dict()
+
+def safe_get_ionization_energy(elem, index, default_value=0.0):
+    try:
+        return getattr(elem, '_ionization_energies')[index].energy
+    except IndexError:
+        return default_value
+            
+
+class CompoundFeaturizer(BaseFeaturizer):
+    def __init__(self, data_source="mendeelev"):
+        self.data_source = data_source
+        # self.dataset = load_dataset(self.data_source)
+
+    @staticmethod
+    def featurize(composition_pmg: Composition):
+        composition_dict = composition_pmg.fractional_composition.get_el_amt_dict()
         atomic_symbols = list(composition_dict.keys())
         atomic_fractions = list(composition_dict.values())
         element_list = [element(symbol) for symbol in atomic_symbols]
 
+        # TODO (GUO Qilin): Not all elemental properties are aviable!
         property_list = [
             'nvalence',
             'atomic_radius',
             'covalent_radius',
             'electronegativity_pauling',
             'density',
-            'thermal_conductivity',
-            'melting_point',
+            # 'thermal_conductivity',
+            # 'melting_point',
         ]
 
-        feature_dict: dict[str: float] = dict()
+        feature_dict: dict[str: float] = {}
         for prop in property_list:
             value_list = [
                 getattr(elem, prop)()
@@ -42,7 +59,8 @@ class CompoundFeaturizer(BaseFeaturizer, ABC):
             feature_dict.update({prop: np.dot(atomic_fractions, value_list)})
 
         for i in range(3):  # the first three IE (eV)
-            value_list = [getattr(elem, '_ionization_energies')[i].energy for elem in element_list]
+            # value_list = [getattr(elem, '_ionization_energies')[i].energy for elem in element_list]  # IndexError: out of range
+            value_list = [safe_get_ionization_energy(elem, i) for elem in element_list]
             feature_dict.update({f'ionization_energy_{i + 1}': np.dot(atomic_fractions, value_list)})
 
         feature_list = [feature_dict[key] for key in property_list]
@@ -53,16 +71,17 @@ class CompoundFeaturizer(BaseFeaturizer, ABC):
         feature_list.append(np.sqrt(np.dot(a=atomic_fractions, b=(1 - np.array(atomic_fractions) / np.mean(atomic_fractions)) ** 2)))
         
         return feature_list
-
-    def feature_labels(self):
+    
+    @staticmethod
+    def feature_labels():
         labels: list[str] = [
             'valence electron concentration',
             'atomic radius (empirical)',
             'covalent radius',
             'Pauling electronegativity',
             'mass density',
-            'thermal conductivity',
-            'melting point',
+            # 'thermal conductivity',
+            # 'melting point',
             'first ionization energy',
             'second ionization energy',
             'third ionization energy',
